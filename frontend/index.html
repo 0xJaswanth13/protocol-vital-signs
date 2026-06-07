@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Protocol Vital Signs Agent — Monad</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #111;
+      border-bottom: 1px solid #222;
+      padding: 18px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: #836EF9;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 900; color: #fff;
+    }
+    .logo-text h1 { font-size: 18px; font-weight: 700; color: #fff; }
+    .logo-text p  { font-size: 12px; color: #836EF9; margin-top: 2px; }
+    .header-right { font-size: 12px; color: #555; text-align: right; }
+    .header-right span { color: #888; display: block; margin-top: 3px; }
+
+    /* ── Risk Banner ── */
+    #risk-banner {
+      padding: 32px;
+      text-align: center;
+      transition: background 0.6s ease;
+      border-bottom: 3px solid #222;
+    }
+    #risk-banner.HEALTHY   { background: linear-gradient(135deg,#003d1f,#005a2e); border-bottom-color:#00C853; }
+    #risk-banner.WARNING   { background: linear-gradient(135deg,#3d3100,#5a4800); border-bottom-color:#FFD600; }
+    #risk-banner.CRITICAL  { background: linear-gradient(135deg,#3d1400,#5a1f00); border-bottom-color:#FF6D00; }
+    #risk-banner.EMERGENCY { background: linear-gradient(135deg,#3d0000,#5a0000); border-bottom-color:#D50000; animation: pulse-banner 1.4s infinite; }
+    #risk-banner.loading   { background: #0f0f0f; border-bottom-color:#222; }
+
+    @keyframes pulse-banner {
+      0%,100% { opacity:1; } 50% { opacity:.75; }
+    }
+
+    .risk-label {
+      font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+      color: rgba(255,255,255,.4); margin-bottom: 10px;
+    }
+    #risk-level-text {
+      font-size: 52px; font-weight: 900; letter-spacing: 8px;
+      text-transform: uppercase; transition: color .4s;
+    }
+    #risk-subtitle { font-size: 14px; color: rgba(255,255,255,.35); margin-top: 8px; }
+
+    /* ── Main ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    .section-title {
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: #444; margin-bottom: 14px;
+    }
+
+    /* ── Vital Signs ── */
+    .vitals-grid {
+      display: grid;
+      grid-template-columns: repeat(5,1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    @media(max-width:800px) { .vitals-grid { grid-template-columns: repeat(2,1fr); } }
+    @media(max-width:480px) { .vitals-grid { grid-template-columns: 1fr; } }
+
+    .vital-card {
+      background: #111; border: 1px solid #1e1e1e; border-radius: 12px;
+      padding: 22px 14px; text-align: center;
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .vital-card.NORMAL   { border-color:#00C853; box-shadow:0 0 14px rgba(0,200,83,.12); }
+    .vital-card.WARNING  { border-color:#FFD600; box-shadow:0 0 14px rgba(255,214,0,.15); }
+    .vital-card.CRITICAL { border-color:#FF6D00; box-shadow:0 0 14px rgba(255,109,0,.2); }
+    .vital-card.ALERT    { border-color:#FF9800; box-shadow:0 0 14px rgba(255,152,0,.15); }
+
+    .vital-icon  { font-size: 30px; margin-bottom: 10px; }
+    .vital-name  { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .vital-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    }
+    .badge-NORMAL   { background:rgba(0,200,83,.15);   color:#00E676; }
+    .badge-WARNING  { background:rgba(255,214,0,.15);  color:#FFD600; }
+    .badge-CRITICAL { background:rgba(255,109,0,.2);   color:#FF6D00; }
+    .badge-ALERT    { background:rgba(255,152,0,.15);  color:#FF9800; }
+    .badge-UNKNOWN  { background:rgba(80,80,80,.15);   color:#555;    }
+
+    /* ── Diagnosis Box ── */
+    .diagnosis-box {
+      background: #0d1117; border: 1px solid #836EF9;
+      border-radius: 12px; padding: 24px; margin-bottom: 28px;
+    }
+    .diagnosis-label {
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: #836EF9; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ai-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #836EF9; animation: blink 2s infinite;
+    }
+    #diagnosis-text {
+      font-family: 'Courier New', monospace; font-size: 14px;
+      color: #c9d1d9; line-height: 1.75;
+    }
+
+    /* ── History ── */
+    .history-box {
+      background: #111; border: 1px solid #1e1e1e;
+      border-radius: 12px; overflow: hidden; margin-bottom: 28px;
+    }
+    .history-header {
+      padding: 14px 20px; border-bottom: 1px solid #1e1e1e;
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #444;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left; padding: 10px 16px;
+      font-size: 11px; color: #3a3a3a; text-transform: uppercase;
+      letter-spacing: 1px; border-bottom: 1px solid #1a1a1a;
+    }
+    td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid #151515; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr.row-HEALTHY   td:first-child { border-left: 3px solid #00C853; padding-left: 13px; }
+    tr.row-WARNING   td:first-child { border-left: 3px solid #FFD600; padding-left: 13px; }
+    tr.row-CRITICAL  td:first-child { border-left: 3px solid #FF6D00; padding-left: 13px; }
+    tr.row-EMERGENCY td:first-child { border-left: 3px solid #D50000; padding-left: 13px; }
+
+    .tbadge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+    .tb-HEALTHY   { background:rgba(0,200,83,.1);  color:#00E676; }
+    .tb-WARNING   { background:rgba(255,214,0,.1); color:#FFD600; }
+    .tb-CRITICAL  { background:rgba(255,109,0,.1); color:#FF6D00; }
+    .tb-EMERGENCY { background:rgba(213,0,0,.2);   color:#FF1744; }
+
+    .no-data { text-align:center; padding:36px; color:#333; font-size:14px; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid #1a1a1a; padding: 20px 32px;
+      text-align: center; font-size: 12px; color: #333;
+    }
+    footer a { color: #836EF9; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Refresh dot ── */
+    .live-dot {
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: #836EF9;
+      animation: blink 2s infinite; margin-right: 5px; vertical-align: middle;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">+</div>
+    <div class="logo-text">
+      <h1>Protocol Vital Signs Agent</h1>
+      <p>Powered by Monad + OpenAI gpt-4o-mini</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="live-dot"></span>Live on Monad Testnet
+    <span id="last-updated-time">Connecting...</span>
+  </div>
+</header>
+
+<!-- Risk Banner -->
+<div id="risk-banner" class="loading">
+  <div class="risk-label">Overall Protocol Risk</div>
+  <div id="risk-level-text" style="color:#444">CONNECTING</div>
+  <div id="risk-subtitle">Reading data from Monad Testnet...</div>
+</div>
+
+<!-- Main -->
+<main>
+
+  <!-- Vital Signs -->
+  <div class="section-title">5 Vital Signs</div>
+  <div class="vitals-grid">
+    <div class="vital-card" id="card-tvl">
+      <div class="vital-icon">📊</div>
+      <div class="vital-name">TVL</div>
+      <span class="vital-badge badge-UNKNOWN" id="badge-tvl">—</span>
+    </div>
+    <div class="vital-card" id="card-admin">
+      <div class="vital-icon">👤</div>
+      <div class="vital-name">Admin Wallet</div>
+      <span class="vital-badge badge-UNKNOWN" id="badge-admin">—</span>
+    </div>
+    <div class="vital-card" id="card-liquidity">
+      <div class="vital-icon">💧</div>
+      <div class="vital-name">Liquidity Pool</div>
+      <span class="vital-badge badge-UNKNOWN" id="badge-liquidity">—</span>
+    </div>
+    <div class="vital-card" id="card-tx">
+      <div class="vital-icon">⚡</div>
+      <div class="vital-name">TX Pattern</div>
+      <span class="vital-badge badge-UNKNOWN" id="badge-tx">—</span>
+    </div>
+    <div class="vital-card" id="card-upgrades">
+      <div class="vital-icon">🔧</div>
+      <div class="vital-name">Contract Upgrades</div>
+      <span class="vital-badge badge-UNKNOWN" id="badge-upgrades">—</span>
+    </div>
+  </div>
+
+  <!-- AI Diagnosis -->
+  <div class="section-title">AI Diagnosis</div>
+  <div class="diagnosis-box">
+    <div class="diagnosis-label">
+      <span class="ai-dot"></span>
+      OpenAI gpt-4o-mini Analysis — Written permanently on Monad
+    </div>
+    <div id="diagnosis-text">Waiting for AI agent to publish first report on-chain...</div>
+  </div>
+
+  <!-- History -->
+  <div class="section-title">Report History</div>
+  <div class="history-box">
+    <div class="history-header">Last 5 health reports — most recent first</div>
+    <div id="history-container">
+      <div class="no-data">No reports yet. Start agent.py to begin monitoring.</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Footer -->
+<footer>
+  Built on
+  <a href="https://testnet.monadexplorer.com/address/0xF530be2A3Cd4189cc1fD670F2FEe555dBa834A3c" target="_blank">Monad Testnet</a>
+  &nbsp;|&nbsp;
+  VitalSigns:
+  <a href="https://testnet.monadexplorer.com/address/0xF530be2A3Cd4189cc1fD670F2FEe555dBa834A3c" target="_blank">0xF530...834A3c</a>
+  &nbsp;|&nbsp;
+  Monad Blitz Bangalore V4
+</footer>
+
+<script>
+  const MONAD_RPC_URL       = "https://testnet-rpc.monad.xyz";
+  const VITAL_SIGNS_ADDRESS = "0xF530be2A3Cd4189cc1fD670F2FEe555dBa834A3c";
+
+  const VITAL_SIGNS_ABI = [
+    {
+      "type": "function", "name": "getLatestReport", "inputs": [],
+      "outputs": [{ "name": "", "type": "tuple", "components": [
+        { "name": "tvlStatus",       "type": "string"  },
+        { "name": "adminStatus",     "type": "string"  },
+        { "name": "liquidityStatus", "type": "string"  },
+        { "name": "txPatternStatus", "type": "string"  },
+        { "name": "upgradeStatus",   "type": "string"  },
+        { "name": "overallRisk",     "type": "string"  },
+        { "name": "aiDiagnosis",     "type": "string"  },
+        { "name": "timestamp",       "type": "uint256" }
+      ]}],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function", "name": "getReportHistory", "inputs": [],
+      "outputs": [{ "name": "", "type": "tuple[]", "components": [
+        { "name": "tvlStatus",       "type": "string"  },
+        { "name": "adminStatus",     "type": "string"  },
+        { "name": "liquidityStatus", "type": "string"  },
+        { "name": "txPatternStatus", "type": "string"  },
+        { "name": "upgradeStatus",   "type": "string"  },
+        { "name": "overallRisk",     "type": "string"  },
+        { "name": "aiDiagnosis",     "type": "string"  },
+        { "name": "timestamp",       "type": "uint256" }
+      ]}],
+      "stateMutability": "view"
+    }
+  ];
+
+  // ── helpers ─────────────────────────────────────────────────────────────────
+
+  function sc(s) {
+    const v = (s || '').toUpperCase();
+    if (v === 'NORMAL' || v === 'HEALTHY') return 'NORMAL';
+    if (v === 'WARNING')  return 'WARNING';
+    if (v === 'CRITICAL') return 'CRITICAL';
+    if (v === 'ALERT')    return 'ALERT';
+    return 'UNKNOWN';
+  }
+
+  function riskColor(r) {
+    const v = (r || '').toUpperCase();
+    if (v === 'HEALTHY')   return '#00E676';
+    if (v === 'WARNING')   return '#FFD600';
+    if (v === 'CRITICAL')  return '#FF6D00';
+    if (v === 'EMERGENCY') return '#FF1744';
+    return '#444';
+  }
+
+  function subtext(r) {
+    const v = (r || '').toUpperCase();
+    if (v === 'HEALTHY')   return 'All vital signs within normal parameters. Protocol is safe.';
+    if (v === 'WARNING')   return 'Anomalies detected. Monitor closely and prepare to withdraw.';
+    if (v === 'CRITICAL')  return 'Multiple vital signs critical. Consider withdrawing your funds now.';
+    if (v === 'EMERGENCY') return 'RUG PULL DETECTED — Emergency evacuation triggered automatically!';
+    return 'Reading data from Monad Testnet...';
+  }
+
+  function tsToTime(ts) {
+    const n = Number(ts);
+    if (!n) return '—';
+    return new Date(n * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || '—'); }
+
+  // ── updaters ─────────────────────────────────────────────────────────────────
+
+  function updateBanner(risk) {
+    const banner = document.getElementById('risk-banner');
+    const v = (risk || 'loading').toUpperCase();
+    banner.className = v;
+    document.getElementById('risk-level-text').textContent = v === 'LOADING' ? 'CONNECTING' : v;
+    document.getElementById('risk-level-text').style.color = riskColor(v);
+    document.getElementById('risk-subtitle').textContent   = subtext(v);
+  }
+
+  function updateCard(cardId, badgeId, statusRaw) {
+    const cls   = sc(statusRaw);
+    document.getElementById(cardId).className   = 'vital-card ' + cls;
+    const badge = document.getElementById(badgeId);
+    badge.className   = 'vital-badge badge-' + cls;
+    badge.textContent = (statusRaw || '—').toUpperCase();
+  }
+
+  function updateVitals(r) {
+    updateCard('card-tvl',       'badge-tvl',       r.tvlStatus);
+    updateCard('card-admin',     'badge-admin',      r.adminStatus);
+    updateCard('card-liquidity', 'badge-liquidity',  r.liquidityStatus);
+    updateCard('card-tx',        'badge-tx',         r.txPatternStatus);
+    updateCard('card-upgrades',  'badge-upgrades',   r.upgradeStatus);
+  }
+
+  function updateHistory(reports) {
+    const el = document.getElementById('history-container');
+    if (!reports || reports.length === 0) {
+      el.innerHTML = '<div class="no-data">No reports yet. Start agent.py to begin monitoring.</div>';
+      return;
+    }
+    const rows = [...reports].reverse().slice(0, 5).map(r => {
+      const risk = (r.overallRisk || '').toUpperCase();
+      return `<tr class="row-${risk}">
+        <td>${tsToTime(r.timestamp)}</td>
+        <td><span class="tbadge tb-${risk}">${risk}</span></td>
+        <td>${r.tvlStatus || '—'}</td>
+        <td>${r.adminStatus || '—'}</td>
+        <td>${r.liquidityStatus || '—'}</td>
+        <td style="color:#555;font-size:12px">${trunc(r.aiDiagnosis, 80)}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `<table>
+      <thead><tr>
+        <th>Time</th><th>Risk</th><th>TVL</th><th>Admin</th><th>Liquidity</th><th>AI Diagnosis</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  // ── main loader ───────────────────────────────────────────────────────────────
+
+  async function loadData() {
+    try {
+      const provider = new ethers.JsonRpcProvider(MONAD_RPC_URL);
+      const contract  = new ethers.Contract(VITAL_SIGNS_ADDRESS, VITAL_SIGNS_ABI, provider);
+
+      const [latest, history] = await Promise.all([
+        contract.getLatestReport(),
+        contract.getReportHistory()
+      ]);
+
+      if (Number(latest.timestamp) === 0) {
+        document.getElementById('risk-level-text').textContent = 'WAITING';
+        document.getElementById('risk-subtitle').textContent   = 'Agent not started yet — waiting for first health check...';
+        document.getElementById('diagnosis-text').textContent  = 'No reports on-chain yet. Run python3 agent.py to begin monitoring.';
+        document.getElementById('last-updated-time').textContent = 'Updated ' + new Date().toLocaleTimeString();
+        return;
+      }
+
+      updateBanner(latest.overallRisk);
+      updateVitals(latest);
+      document.getElementById('diagnosis-text').textContent = latest.aiDiagnosis || '—';
+      updateHistory(history);
+      document.getElementById('last-updated-time').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById('risk-subtitle').textContent = 'Connecting to Monad Testnet...';
+      document.getElementById('last-updated-time').textContent = 'Retrying...';
+    }
+  }
+
+  setInterval(loadData, 30000);
+  loadData();
+</script>
+</body>
+</html>
