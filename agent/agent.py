@@ -41,13 +41,19 @@ if not w3.is_connected():
 agent_account = w3.eth.account.from_key(AGENT_PRIVATE_KEY)
 
 def load_abi(contract_name):
-    out_dir  = os.path.join(os.path.dirname(__file__), '..', 'out')
-    abi_path = os.path.join(out_dir, f"{contract_name}.sol", f"{contract_name}.json")
-    if not os.path.exists(abi_path):
-        print(f"[ERROR] ABI not found: {abi_path}. Run 'forge build' first.")
-        sys.exit(1)
-    with open(abi_path) as f:
-        return json.load(f)["abi"]
+    base = os.path.dirname(__file__)
+    # abis/ is committed to repo — works on Render without forge build
+    abis_path = os.path.join(base, '..', 'abis', f"{contract_name}.json")
+    if os.path.exists(abis_path):
+        with open(abis_path) as f:
+            return json.load(f)
+    # Fallback: local dev after forge build
+    out_path = os.path.join(base, '..', 'out', f"{contract_name}.sol", f"{contract_name}.json")
+    if os.path.exists(out_path):
+        with open(out_path) as f:
+            return json.load(f)["abi"]
+    print(f"[ERROR] ABI not found for {contract_name}.")
+    sys.exit(1)
 
 mock_protocol = w3.eth.contract(
     address=Web3.to_checksum_address(MOCK_PROTOCOL_ADDRESS),

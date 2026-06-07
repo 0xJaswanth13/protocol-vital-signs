@@ -18,7 +18,7 @@ import threading
 import time as _time
 from pathlib import Path
 
-PORT = 3333
+PORT = int(os.getenv("PORT", "3333"))
 
 BASE_DIR      = Path(__file__).parent.parent
 AGENT_SCRIPT  = Path(__file__).parent / "agent.py"
@@ -252,6 +252,10 @@ def _load_web3():
     import json as _json
     w3 = Web3(Web3.HTTPProvider(os.getenv("MONAD_RPC_URL")))
     def abi(n):
+        abis_path = BASE_DIR / "abis" / f"{n}.json"
+        if abis_path.exists():
+            with open(abis_path) as f:
+                return _json.load(f)
         with open(BASE_DIR / "out" / f"{n}.sol" / f"{n}.json") as f:
             return _json.load(f)["abi"]
     token    = w3.eth.contract(address=Web3.to_checksum_address(os.getenv("MOCK_TOKEN_ADDRESS")),    abi=abi("MockToken"))

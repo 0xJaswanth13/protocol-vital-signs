@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: protocol-vital-signs
+    runtime: python
+    buildCommand: pip install -r agent/requirements.txt
+    startCommand: python agent/demo_server.py
+    plan: free
+    envVars:
+      - key: MONAD_RPC_URL
+        value: https://testnet-rpc.monad.xyz
+      - key: MOCK_TOKEN_ADDRESS
+        value: 0x4257A1306dfE3AA91367075B29e22950F459095e
+      - key: MOCK_PROTOCOL_ADDRESS
+        value: 0x79C8c7960865455064170227d419b7d7B92362E8
+      - key: PRIVATE_KEY
+        sync: false
+      - key: AGENT_PRIVATE_KEY
+        sync: false
+      - key: AGENT_ADDRESS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: BACKUP_WALLET
+        sync: false
